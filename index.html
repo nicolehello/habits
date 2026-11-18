@@ -41,7 +41,7 @@ h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
 .tiny{color:var(--soft);font-size:14px;margin:2px 0 0}
 .cue{font-size:13px;color:var(--soft);margin:6px 0 0;font-style:italic}
 .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
-.pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--ink);border:0;cursor:pointer;font-family:inherit}
+.pill{text-align:left;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--ink);border:0;cursor:pointer;font-family:inherit}
 .pill.warm{background:var(--warm-soft)}
 .pill.ghost{background:transparent;border:1px solid var(--line);color:var(--soft)}
 .dots{display:flex;gap:5px;margin-top:10px}
@@ -89,6 +89,22 @@ nav svg{width:22px;height:22px}
 .cal-d{font:inherit;font-size:13px;aspect-ratio:1;border-radius:10px;border:0;background:var(--bg);color:var(--ink);cursor:pointer;padding:0}
 .cal-d.t{outline:2px solid var(--warm)}
 .cal-d.sel{outline:2px solid var(--ink)}
+.why{font-size:13px;color:var(--soft);margin:4px 0 0}
+.card.slipped{border-color:var(--warm)}
+.steps{margin-top:8px;font-size:14px}
+.steps summary{color:var(--accent);cursor:pointer}
+.steps ol{margin:6px 0 0;padding-left:20px;color:var(--ink)}
+.steps li{margin:3px 0}
+.timeline .tl{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.timeline .tl:last-child{border-bottom:0}
+.tl-t{font-variant-numeric:tabular-nums;color:var(--soft);width:46px;font-size:14px}
+.tl-n{flex:1}.tl-c{color:var(--accent);font-weight:700}
+.tl.done .tl-n{color:var(--soft);text-decoration:line-through}
+.burst{font-size:44px;color:var(--warm)}
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+.toggle{width:50px;height:30px;border-radius:999px;border:0;background:var(--line);position:relative;cursor:pointer;flex:none}
+.toggle i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on{background:var(--accent)}.toggle.on i{left:23px}
 .grow{background:var(--warm-soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:10px}
 </style>
 </head>
@@ -116,12 +132,12 @@ const SIZES = [{id:'5',label:'5 min'},{id:'30',label:'~30 min'},{id:'big',label:
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function examples(){
-  const ex=(o)=>Object.assign({id:uid(),alert:0,done:{},created:todayKey(),example:true},o);
+  const ex=(o)=>Object.assign({id:uid(),alert:0,heads:15,done:{},created:todayKey(),example:true},o);
   return [
-    ex({name:'Go to the studio', tiny:'Just arrive and open one sketchbook', cue:'After I finish work, I grab my bag and go', days:[1,5], time:'17:30', mins:20, area:'Studio', identity:'someone who makes art'}),
-    ex({name:'Go for a walk', tiny:'Put my shoes on and step outside', cue:'After lunch, I put my shoes on and go', days:[0,2,4], time:'12:30', mins:15, area:'Health', identity:'someone who moves every day'}),
-    ex({name:'Read before bed', tiny:'Read one page', cue:'After I get into bed, I read instead of scrolling', days:[0,1,2,3,4,5,6], time:'21:30', mins:15, area:'Life', identity:'a reader'}),
-    ex({name:'Tidy for 10 minutes', tiny:'Put away 3 things', cue:'After dinner, I set a 10 minute timer and tidy', days:[0,1,2,3,4], time:'19:30', mins:10, area:'Home', identity:'someone with a calm home'}),
+    ex({name:'Go to the studio', tiny:'Just arrive and open one sketchbook', cue:'After I finish work, I grab my bag and go', days:[1,5], time:'17:30', mins:20, area:'Studio', identity:'someone who makes art', why:'I feel most like me when I make things', setup:'Pack a studio bag and leave it by the door', steps:'Grab the bag by the door\nGo to the studio\nOpen one sketchbook\nKeep going if you feel like it'}),
+    ex({name:'Go for a walk', tiny:'Put my shoes on and step outside', cue:'After lunch, I put my shoes on and go', days:[0,2,4], time:'12:30', mins:15, area:'Health', identity:'someone who moves every day', why:'Fresh air clears my head', pair:'Listen to a favourite podcast only while walking', setup:'Leave your shoes by the door', steps:'Put your shoes on\nStep outside\nWalk to the end of the street\nKeep going if you feel like it'}),
+    ex({name:'Read before bed', tiny:'Read one page', cue:'After I get into bed, I read instead of scrolling', days:[0,1,2,3,4,5,6], time:'21:30', mins:15, area:'Life', identity:'a reader', why:'I sleep better without my phone', setup:'Put the book on your pillow each morning', steps:'Get into bed\nPut the phone on charge\nRead one page'}),
+    ex({name:'Tidy for 10 minutes', tiny:'Put away 3 things', cue:'After dinner, I set a 10 minute timer and tidy', days:[0,1,2,3,4], time:'19:30', mins:10, area:'Home', identity:'someone with a calm home', why:'A tidy space makes the morning easier', setup:'Put a basket in the room you tidy most', steps:'Set a 10 minute timer\nPut away 3 things\nStop when the timer goes'}),
   ];
 }
 function load(){
@@ -163,14 +179,15 @@ function streak(h){
   }
   return count;
 }
-function missedLast(h){
+function missedDay(h){
   let d=addDays(new Date(),-1);
   const start = h.created ? new Date(h.created+'T00:00') : d;
   for(let i=0;i<14 && d>=start;i++, d=addDays(d,-1)){
-    if(scheduled(h,d)) return !h.done[keyOf(d)];
+    if(scheduled(h,d)) return h.done[keyOf(d)] ? null : d;
   }
-  return false;
+  return null;
 }
+function missedLast(h){ return !!missedDay(h); }
 function doneInLastWeeks(h,weeks){
   let n=0,need=0,d=new Date();
   for(let i=0;i<weeks*7;i++,d=addDays(d,-1)){ if(scheduled(h,d)){need++; if(h.done[keyOf(d)]) n++;} }
@@ -238,6 +255,27 @@ const PLAYBOOK = [
   {re:/\b(friend|call|family|mum|mom|dad|text)\w*/i, name:'Reach out to someone', tiny:'Send one message', identity:'a good friend', cue:'After Sunday lunch, I message someone I miss', n:1, time:'14:00', mins:10, area:'Life',
    tip:'One message a week adds up to a lot of connection.'},
 ];
+const EXTRA = {
+  'Go to the studio':{setup:'Pack a studio bag and leave it by the door', steps:'Grab the bag by the door\nWalk or drive to the studio\nOpen one sketchbook\nKeep going if you feel like it'},
+  'Make a little art':{setup:'Leave your sketchbook and one pen open on the table', steps:'Sit down at the table\nPick up the pen\nDraw one line\nKeep going if you feel like it'},
+  'Clay time':{setup:'Set out your tools the night before', steps:'Put on your apron\nWedge one ball of clay\nSit at the wheel'},
+  'Play music':{setup:'Take the instrument out of its case and leave it on a stand', steps:'Pick up the instrument\nTune it\nPlay one song'},
+  'Write':{setup:'Keep a notebook and pen next to the kettle', steps:'Make tea\nOpen the notebook\nWrite one sentence'},
+  'Read':{setup:'Put the book on your pillow each morning', steps:'Get into bed\nPut the phone on charge\nRead one page'},
+  'Go for a walk':{setup:'Leave your shoes by the door', steps:'Put your shoes on\nStep outside\nWalk to the end of the street\nKeep going if you feel like it'},
+  'Go for a run':{setup:'Lay your running clothes out the night before', steps:'Put your running clothes on\nStep outside\nStart with a walk\nJog for a bit'},
+  'Move my body':{setup:'Put your workout clothes on top of the drawer', steps:'Change into workout clothes\nDo 5 squats\nKeep going if you feel like it'},
+  'Stretch':{setup:'Leave the mat rolled out where you walk past it', steps:'Stand on the mat\nDo one stretch\nBreathe slowly'},
+  'Meditate':{setup:'Pick one chair that is your calm chair', steps:'Sit in your calm chair\nClose your eyes\nTake three slow breaths'},
+  'Drink water':{setup:'Keep a full glass of water next to your bed', steps:'Pick up the glass\nDrink it'},
+  'Wind down for bed':{setup:'Put a phone charger in the kitchen', steps:'Plug the phone in in the kitchen\nDim the lights\nGet into bed'},
+  'Tidy for 10 minutes':{setup:'Put a basket in the room you tidy most', steps:'Set a 10 minute timer\nPut away 3 things\nStop when the timer goes'},
+  'Cook a proper meal':{setup:'Keep a list of 5 easy recipes on the fridge', steps:'Pick a recipe in the morning\nAdd missing ingredients to the shopping list\nCook it'},
+  'Garden':{setup:'Keep gloves and a watering can by the back door', steps:'Put gloves on\nStep outside\nWater one plant'},
+  'Learn a little':{setup:'Put the learning app on your home screen', steps:'Open the app\nDo one lesson'},
+  'Phone-free time':{setup:'Choose one drawer for the phone', steps:'Put the phone in the drawer\nSet a 10 minute timer'},
+  'Reach out to someone':{setup:'Make a short list of people you miss', steps:'Pick one person\nSend one message'},
+};
 const DAY_SPREAD = {1:[5],2:[1,5],3:[0,2,4],4:[0,1,3,5],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
 function parseTime(t){
   let m=t.match(/\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
@@ -284,7 +322,8 @@ function coachSuggest(text){
   }
   const own=tidyName(t);
   const name = own && own.split(' ').length<=5 ? own : base.name;
-  return {name, tiny:base.tiny, identity:base.identity, cue, days, time, mins, area:base.area,
+  const ex=EXTRA[base.name]||{setup:'', steps:''};
+  return {setup:ex.setup, steps:ex.steps, why:'', pair:'', name, tiny:base.tiny, identity:base.identity, cue, days, time, mins, area:base.area,
     tip: base.tip + (days.length<=2 ? '' : ' Starting with '+days.length+' days. If that feels like a lot, drop to two.')};
 }
 
@@ -301,7 +340,7 @@ function icsFor(h){
   const d=nextStart(h), mins=+h.mins||15, e=new Date(d.getTime()+mins*60000);
   const f=x=>x.getFullYear()+pad(x.getMonth()+1)+pad(x.getDate())+'T'+pad(x.getHours())+pad(x.getMinutes())+'00';
   const now=new Date(), stamp=now.getUTCFullYear()+pad(now.getUTCMonth()+1)+pad(now.getUTCDate())+'T'+pad(now.getUTCHours())+pad(now.getUTCMinutes())+'00Z';
-  const desc=[h.identity?('You are '+h.identity.replace(/^(i am|i'm|im)\s+/i,'')+'.'):'', h.tiny?('Tiny version: '+h.tiny):'', h.cue?('Cue: '+h.cue):'', 'Just show up. Two minutes counts. Never miss twice.'].filter(Boolean).join('\n');
+  const desc=[h.why?('Why: '+h.why):'', h.pair?('Pair it: '+h.pair):'', h.identity?('You are '+h.identity.replace(/^(i am|i'm|im)\s+/i,'')+'.'):'', h.tiny?('Tiny version: '+h.tiny):'', h.cue?('Cue: '+h.cue):'', 'Just show up. Two minutes counts. Never miss twice.'].filter(Boolean).join('\n');
   const days=h.days.slice().sort().map(i=>ICS_DAYS[i]).join(',');
   const alertBefore = +h.alert||0;
   return [
@@ -311,6 +350,7 @@ function icsFor(h){
     'SUMMARY:'+icsEsc(h.name),'DESCRIPTION:'+icsEsc(desc),
     'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(alertText(h)),
     'TRIGGER:-PT'+alertBefore+'M','END:VALARM',
+    ...(+h.heads ? ['BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Heads up: '+h.name+' in '+h.heads+' minutes. Start finishing what you are doing.'),'TRIGGER:-PT'+(+h.heads)+'M','END:VALARM'] : []),
     'END:VEVENT'
   ].join('\r\n');
 }
@@ -378,7 +418,7 @@ function encouragement(todays){
   if(!todays.length) return 'A rest day. Rest is part of it.';
   if(!left.length) return 'All done for today. Be proud of that.';
   const missed=left.find(missedLast);
-  if(missed) return 'Yesterday slipped? Totally normal. The tiny version of "'+missed.name+'" gets you back on track.';
+  if(missed) return '"'+missed.name+'" slipped last time. Today is the day that counts: the tiny version keeps your chain going.';
   if(now.getHours()>=19) return 'Still time for a tiny version. Two minutes counts.';
   return QUOTES[now.getDate()%QUOTES.length];
 }
@@ -396,47 +436,196 @@ function weekDots(h){
     return `<div class="dot ${cls}"><i></i>${n[0]}</div>`;
   }).join('')+'</div>';
 }
-function habitCard(h, showTick){
-  const k=todayKey(), done=!!h.done[k], s=streak(h);
-  const nudge = !done && scheduled(h,new Date()) && missedLast(h) ? '<p class="nudge">Missed last time — that\'s fine. Just don\'t miss twice. Do the tiny version.</p>' : '';
-  return `<div class="card"><div class="habit">
-    ${showTick?`<button class="tick ${done?'done':''}" data-tick="${h.id}" aria-label="Done">${CHECK}</button>`:''}
+function idName(id){ return String(id||'').replace(/^(i am|i'm|im)\s+/i,''); }
+function votes(identity){
+  if(!identity) return 0;
+  return [...S.habits,...(S.archived||[])].filter(h=>idName(h.identity).toLowerCase()===idName(identity).toLowerCase())
+    .reduce((a,h)=>a+Object.keys(h.done).length,0);
+}
+function energy(){ return S.energy && S.energy.date===todayKey() ? S.energy.level : null; }
+function isBadDay(){ return energy()==='low'; }
+const AREA_ICON={Studio:'🎨',Home:'🏡',Health:'🌿',Life:'☕'};
+function habitCard(h){
+  const k=todayKey(), v=h.done[k], done=!!v, s=streak(h), bad=isBadDay();
+  const slipped = !done && scheduled(h,new Date()) && missedLast(h);
+  const md = slipped ? missedDay(h) : null;
+  const nudge = slipped ? `<p class="nudge">You missed ${md.toLocaleDateString(undefined,{weekday:'long'})}. That's okay, once is normal. Your future self is counting on today though: just do the ${bad?'':'tiny '}2-minute version and the chain is safe.</p>` : '';
+  const steps = (h.steps||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const stepsHtml = steps.length ? `<details class="steps"><summary>Show steps</summary><ol>${steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></details>` : '';
+  const setup = h.setup && !h.setupDone ? `<button class="pill warm" data-setup="${h.id}">☐ One-time setup: ${esc(h.setup)}</button>` : '';
+  const vt = h.identity ? votes(h.identity) : 0;
+  return `<div class="card${slipped?' slipped':''}"><div class="habit">
+    <button class="tick ${done?'done':''}" data-tick="${h.id}" aria-label="Showed up">${CHECK}</button>
     <div class="hbody">
-      <p class="hname">${esc(h.name)}</p>
-      ${h.tiny?`<p class="tiny">Tiny version: ${esc(h.tiny)}</p>`:''}
+      <p class="hname">${esc(bad && h.tiny ? h.tiny : h.name)}</p>
+      ${bad ? `<p class="tiny">Tiny version of ${esc(h.name)}. That's all today.</p>` : (h.tiny?`<p class="tiny">Tiny version: ${esc(h.tiny)}</p>`:'')}
       ${h.cue?`<p class="cue">${esc(h.cue)}</p>`:''}
+      ${h.why?`<p class="why">Why: ${esc(h.why)}</p>`:''}
+      ${h.pair?`<p class="why">Pair it: ${esc(h.pair)}</p>`:''}
+      ${done && !bad ? `<div class="meta"><button class="pill ${v===2?'':'ghost'}" data-full="${h.id}">${v===2?'✓ Did the full thing':'Showed up ✓ · did the full thing?'}</button></div>`:''}
       <div class="meta">
-        ${h.time?`<span class="pill ghost">${esc(h.time)} · ${h.mins||15} min</span>`:''}
+        ${h.time?`<span class="pill ghost">${esc(h.time)} · ${bad?2:(h.mins||15)} min</span>`:''}
         ${s?`<span class="pill">${s} in a row</span>`:''}
-        ${h.area?`<span class="pill warm">${esc(h.area)}</span>`:''}
+        ${vt?`<span class="pill warm">${vt} vote${vt===1?'':'s'} for ${esc(idName(h.identity))}</span>`:''}
       </div>
+      ${stepsHtml}
+      ${setup?`<div class="meta">${setup}</div>`:''}
       ${nudge}
       ${weekDots(h)}
     </div></div></div>`;
 }
+function needsReview(){
+  const now=new Date(), d=dow(now); // Sun=6, Mon=0
+  if(!(d===6 || d===0)) return false;
+  const sunday = d===6 ? todayKey() : keyOf(addDays(now,-1));
+  return !(S.reviews||[]).some(r=>r.week===sunday) && S.habits.some(h=>!h.example);
+}
 function renderToday(){
-  const now=new Date();
-  const todays=S.habits.filter(h=>scheduled(h,now));
+  const now=new Date(), k=todayKey(), bad=isBadDay();
+  // never miss twice: slipped habits first, then not done, then done
+  // predictable order (by time), except a habit you missed last time comes first
+  const byTime=(a,b)=>(a.time||'99').localeCompare(b.time||'99');
+  const rank=h=>missedLast(h)&&!h.done[k]?0:1;
+  const todays=S.habits.filter(h=>scheduled(h,now)).sort((a,b)=>rank(a)-rank(b)||byTime(a,b));
+  const en=energy();
+  const bigIdea = en==='high' ? (S.ideas||[]).find(i=>!i.shop && i.size==='30') : null;
+  const timed=todays.filter(h=>h.time).slice().sort(byTime);
   const others=S.habits.filter(h=>!scheduled(h,now));
-  const doneN=todays.filter(h=>h.done[todayKey()]).length;
+  const doneN=todays.filter(h=>h.done[k]).length;
   const hello = now.getHours()<12?'Good morning':now.getHours()<18?'Good afternoon':'Good evening';
   document.getElementById('app').innerHTML=`
     <h1>${hello}</h1>
     <p class="sub">${now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})}${todays.length?` · ${doneN} of ${todays.length} done`:''}</p>
-    <p class="quote">${esc(encouragement(todays))}</p>
+    <p class="quote">${esc(bad?'Rough days count too. Tiny versions only, and every one is still a vote.':encouragement(todays))}</p>
+    ${needsReview()?`<div class="card coach" style="margin-top:16px"><p class="hname">Sunday check-in</p><p class="tiny">One minute to look back and tweak your habits for next week.</p><div style="height:10px"></div><button class="btn" id="startReview">Start check-in</button></div>`:''}
+    <div class="card" style="margin-top:16px">
+      <p class="hint" style="margin:0 0 8px">How's your energy today?</p>
+      <div class="days">${[['low','Low'],['med','Medium'],['high','High']].map(([v,l])=>`<button type="button" data-energy="${v}" class="${en===v?'on':''}">${l}</button>`).join('')}</div>
+      ${en==='low'?'<p class="tiny" style="margin-top:8px">Low energy: everything is shrunk to the tiny version. Each one still counts as a vote.</p>':''}
+      ${en==='med'?'<p class="tiny" style="margin-top:8px">Medium: your normal plan. Tiny versions are always fine.</p>':''}
+      ${en==='high'?`<p class="tiny" style="margin-top:8px">High energy: a good day to do the full versions${bigIdea?`, or try something from your Ideas: <b>${esc(bigIdea.text)}</b>`:''}.</p>`:''}
+    </div>
+    ${timed.length>1?`<h2>Today's timeline</h2><div class="card timeline">${timed.map(h=>`<div class="tl ${h.done[k]?'done':''}"><span class="tl-t">${esc(h.time)}</span><span class="tl-i">${AREA_ICON[h.area]||'•'}</span><span class="tl-n">${esc(h.name)}</span><span class="tl-c">${h.done[k]?'✓':''}</span></div>`).join('')}</div>`:''}
     <h2>Today</h2>
-    ${todays.length?todays.map(h=>habitCard(h,true)).join(''):'<div class="empty">Nothing planned today. Rest counts too.</div>'}
-    ${others.length?`<h2>Not today (tick anyway if you did it)</h2>`+others.map(h=>habitCard(h,true)).join(''):''}
+    ${todays.length?todays.map(h=>habitCard(h)).join(''):'<div class="empty">Nothing planned today. Rest counts too.</div>'}
+    ${others.length?`<h2>Not today (tick anyway if you did it)</h2>`+others.map(h=>habitCard(h)).join(''):''}
     ${!S.habits.length?'<button class="btn" onclick="editHabit()">Add your first habit</button>':''}
   `;
   bindTicks();
+  document.querySelectorAll('[data-energy]').forEach(b=>b.onclick=()=>{ const v=b.dataset.energy; S.energy = energy()===v ? null : {date:k, level:v}; save(); render(); });
+  const sr=document.getElementById('startReview'); if(sr) sr.onclick=openReview;
 }
+const MILESTONES=[5,10,25,50,100,200,365];
 function bindTicks(){
+  const find=id=>S.habits.find(x=>x.id===id);
   document.querySelectorAll('[data-tick]').forEach(b=>b.onclick=()=>{
-    const h=S.habits.find(x=>x.id===b.dataset.tick), k=todayKey();
-    if(h.done[k]) delete h.done[k]; else { h.done[k]=1; if(navigator.vibrate) navigator.vibrate(10); toast(cheer(h)); }
-    save(); render();
+    const h=find(b.dataset.tick), k=todayKey();
+    if(h.done[k]) { delete h.done[k]; save(); render(); return; }
+    h.done[k]=1; if(navigator.vibrate && !S.quiet) navigator.vibrate(10); save(); render();
+    const vt=votes(h.identity), s=streak(h), total=Object.keys(h.done).length;
+    if(h.identity && MILESTONES.includes(vt)) celebrate(vt+' votes', `You've cast ${vt} votes for being ${idName(h.identity)}. That's who you are now.`);
+    else if(MILESTONES.includes(total)) celebrate(total+' times', `You've done "${h.name}" ${total} times. Small things, repeated, change everything.`);
+    else if([7,14,21,30].includes(s)) celebrate(s+' in a row', 'A real run. Remember: if you miss one, just don\'t miss twice.');
+    else toast(cheer(h));
   });
+  document.querySelectorAll('[data-full]').forEach(b=>b.onclick=()=>{ const h=find(b.dataset.full), k=todayKey(); h.done[k]=h.done[k]===2?1:2; save(); render(); if(h.done[k]===2) toast('The full thing! Lovely.'); });
+  document.querySelectorAll('[data-setup]').forEach(b=>b.onclick=()=>{ const h=find(b.dataset.setup); h.setupDone=true; save(); render(); toast('Space set up. Now the easy choice is the right one.'); });
+}
+function confetti(){
+  if(S.quiet || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c=document.createElement('canvas'); c.className='confetti'; document.body.appendChild(c);
+  const W=c.width=innerWidth*devicePixelRatio, H=c.height=innerHeight*devicePixelRatio, x=c.getContext('2d');
+  const cols=['#6f8f72','#93b496','#c58b5c','#e3c48d','#b7a3c9','#8fb3c4'];
+  const ps=Array.from({length:120},()=>({x:W/2+(Math.random()-.5)*W*.3,y:H*.55,vx:(Math.random()-.5)*14*devicePixelRatio,vy:-(8+Math.random()*12)*devicePixelRatio,r:(3+Math.random()*4)*devicePixelRatio,c:cols[Math.random()*cols.length|0],a:Math.random()*6}));
+  let t=0; (function f(){ x.clearRect(0,0,W,H); ps.forEach(p=>{ p.vy+=.35*devicePixelRatio; p.x+=p.vx; p.y+=p.vy; p.vx*=.99; p.a+=.1; x.fillStyle=p.c; x.save(); x.translate(p.x,p.y); x.rotate(p.a); x.fillRect(-p.r,-p.r/2,p.r*2,p.r); x.restore(); });
+    if(++t<150) requestAnimationFrame(f); else c.remove(); })();
+}
+function celebrate(big, msg){
+  confetti();
+  openSheet(`<div style="text-align:center;padding:10px 0 4px">
+    <div class="burst">✦</div>
+    <h1 style="font-size:30px;margin:6px 0">${esc(big)}</h1>
+    <p class="sub" style="margin:0 auto 18px;max-width:320px">${esc(msg)}</p>
+    <button class="btn" onclick="closeSheet()">Thank you</button></div>`);
+}
+
+/* ---------- Habit scorecard ---------- */
+function stackChips(){
+  const good=(S.scorecard||[]).filter(x=>x.mark==='+');
+  if(!good.length) return '<p class="hint" style="margin:6px 0 0">Tip: fill in your Habit scorecard (in Habits) and your good routines show up here as one-tap cues.</p>';
+  return '<div class="meta"><span class="hint">Stack it after:</span>'+good.map(x=>`<button type="button" class="pill" data-stack="${esc(x.text)}">${esc(x.text)}</button>`).join('')+'</div>';
+}
+function openScorecard(){
+  const sc=S.scorecard||[];
+  openSheet(`<h1 style="font-size:22px">Habit scorecard</h1>
+    <p class="sub">List what you already do on a normal day, in order, one per line. Then mark each one: <b>+</b> helps you, <b>=</b> neutral, <b>−</b> doesn't help. No judging, just noticing.</p>
+    <textarea id="sc_text" placeholder="Wake up&#10;Check phone in bed&#10;Make coffee&#10;Drive to work&#10;Eat dinner&#10;Watch TV&#10;Go to bed">${esc(sc.map(x=>x.text).join('\n'))}</textarea>
+    <div style="height:10px"></div><button class="btn secondary" id="sc_list">Next: mark them</button>
+    <div id="sc_rows"></div>
+    <div style="height:14px"></div><button class="btn" id="sc_save">Save scorecard</button>
+    <p class="hint">Things marked + make great cues: in New habit you can tap one to stack a habit right after it.</p>`, ()=>{
+    let rows=sc.map(x=>({...x}));
+    const draw=()=>{ document.getElementById('sc_rows').innerHTML = rows.length?'<div class="card" style="margin-top:14px">'+rows.map((r,i)=>`<div class="idea" style="align-items:center"><p>${esc(r.text)}</p>
+      <div class="days" style="width:132px">${['+','=','−'].map(m=>`<button type="button" data-sc="${i}" data-m="${m}" class="${r.mark===m?'on':''}">${m}</button>`).join('')}</div></div>`).join('')+'</div>':'';
+      document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{ rows[+b.dataset.sc].mark=b.dataset.m; draw(); }); };
+    draw();
+    document.getElementById('sc_list').onclick=()=>{
+      const lines=document.getElementById('sc_text').value.split('\n').map(x=>x.trim()).filter(Boolean);
+      rows=lines.map(t=>({text:t, mark:(rows.find(r=>r.text===t)||{}).mark||''})); draw();
+    };
+    document.getElementById('sc_save').onclick=()=>{ document.getElementById('sc_list').onclick(); S.scorecard=rows; save(); closeSheet(); render(); toast('Scorecard saved'); };
+  });
+}
+
+/* ---------- Sunday check-in ---------- */
+function openReview(){
+  const now=new Date(), sunday = dow(now)===6 ? now : addDays(now,-1);
+  const list=S.habits.filter(h=>!h.example);
+  const rows=list.map(h=>{
+    let n=0,need=0; for(let i=0;i<7;i++){ const d=addDays(sunday,-i); if(scheduled(h,d)){ need++; if(h.done[keyOf(d)]) n++; } }
+    return `<div class="card" data-rv="${h.id}"><p class="hname">${esc(h.name)}</p><p class="tiny">${n} of ${need} this week</p>
+      <div class="days" style="margin-top:10px">${['Too hard','About right','Too easy'].map((l,i)=>`<button type="button" data-feel="${i}">${l}</button>`).join('')}</div>
+      <p class="hint rv-sug" style="margin:8px 0 0"></p></div>`;
+  }).join('');
+  openSheet(`<h1 style="font-size:22px">Sunday check-in</h1>
+    <p class="sub">How did each habit feel this week? I'll suggest a tweak. Not too hard, not too easy: just right keeps you going.</p>
+    ${rows||'<div class="empty">Add a habit of your own first.</div>'}
+    <label>What helped, or what got in the way? (optional)</label><textarea id="rv_note" style="min-height:70px"></textarea>
+    <div style="height:14px"></div><button class="btn" id="rv_save">Save check-in</button>`, ()=>{
+    const feel={};
+    document.querySelectorAll('[data-rv]').forEach(card=>{
+      const h=S.habits.find(x=>x.id===card.dataset.rv);
+      card.querySelectorAll('[data-feel]').forEach(b=>b.onclick=()=>{
+        card.querySelectorAll('[data-feel]').forEach(x=>x.classList.toggle('on',x===b));
+        feel[h.id]=+b.dataset.feel;
+        card.querySelector('.rv-sug').textContent=suggestTweak(h,+b.dataset.feel).text;
+      });
+    });
+    document.getElementById('rv_save').onclick=()=>{
+      const changes=[];
+      Object.entries(feel).forEach(([id,f])=>{ const h=S.habits.find(x=>x.id===id); const t=suggestTweak(h,f); if(t.apply){ t.apply(); changes.push(h.name); } });
+      (S.reviews=S.reviews||[]).push({week:keyOf(sunday),date:todayKey(),feel,note:document.getElementById('rv_note').value.trim()});
+      save(); closeSheet(); render();
+      toast(changes.length?'Updated: '+changes.join(', ')+'. Re-add to Calendar if times changed.':'Check-in saved. See you next Sunday.');
+    };
+  });
+}
+function suggestTweak(h,feel){
+  const {n,need}=doneInLastWeeks(h,3);
+  if(feel===0){
+    if(h.days.length>2){ const drop=h.days[h.days.length-1]; return {text:`Let's drop ${DAYS[drop]} so it's ${h.days.length-1} days a week. Easier wins.`, apply:()=>{ h.days=h.days.filter(d=>d!==drop); }}; }
+    if((h.mins||15)>5){ const m=Math.max(2,Math.round((h.mins||15)/2)); return {text:`Let's halve it to ${m} minutes. Showing up matters more than how long.`, apply:()=>{ h.mins=m; }}; }
+    return {text:'It\'s already tiny. Try a different cue or time, tap Edit on it in Habits.'};
+  }
+  if(feel===2){
+    if(need>=4 && n/need>=0.8){
+      if(h.days.length<7){ const add=[0,1,2,3,4,5,6].find(d=>!h.days.includes(d) && !h.days.includes((d+6)%7)) ?? [0,1,2,3,4,5,6].find(d=>!h.days.includes(d));
+        return {text:`You've been consistent for 3 weeks. Let's add ${DAYS[add]}.`, apply:()=>{ h.days=[...h.days,add].sort(); }}; }
+      return {text:`Consistent for 3 weeks! Let's add 5 minutes.`, apply:()=>{ h.mins=(h.mins||15)+5; }};
+    }
+    return {text:'Nice. Keep it the same until it\'s been easy for 3 weeks, then we\'ll grow it.'};
+  }
+  return {text:'Perfect. Keep it just as it is.'};
 }
 
 /* ---------- Habits ---------- */
@@ -460,8 +649,15 @@ function renderHabits(){
     ${S.habits.some(h=>h.example)?'<p class="hint">The examples show how it works. Tap Edit to make one yours, or clear them all.</p><p style="text-align:center;margin:0 0 10px"><button class="link" id="clearEx">Remove all examples</button></p>':''}
     <button class="btn" onclick="editHabit()">New habit</button>
     ${S.habits.length>1?'<p style="text-align:center"><button class="link" id="calAll">Add all habits to Calendar</button></p>':''}
+    <h2>Tools</h2>
+    <div class="card"><p class="hname">Habit scorecard</p><p class="tiny">${(S.scorecard||[]).length?`${S.scorecard.length} routines noted, ${(S.scorecard||[]).filter(x=>x.mark==='+').length} helpful.`:'Notice what you already do each day. Good routines become cues for new habits.'}</p>
+      <div class="meta"><button class="pill" id="openSc">${(S.scorecard||[]).length?'Edit scorecard':'Start scorecard'}</button></div></div>
+    <div class="card"><p class="hname">Sunday check-in</p><p class="tiny">Each Sunday, rate how each habit felt and I'll make it smaller or grow it.</p>
+      <div class="meta"><button class="pill" id="openRv">Do a check-in now</button></div></div>
+    <div class="card"><div style="display:flex;align-items:center;gap:12px"><div style="flex:1"><p class="hname">Quiet mode</p><p class="tiny">No confetti or vibration. Calm messages only.</p></div>
+      <button class="toggle ${S.quiet?'on':''}" id="quietT" aria-label="Quiet mode"><i></i></button></div></div>
     <h2>About reminders</h2>
-    <p class="hint">"Add to Calendar" puts the habit in your iPhone Calendar as a repeating event with an alert, so your phone reminds you at habit time even when this app is closed. If you change a habit's time, add it again and delete the old one in Calendar.</p>
+    <p class="hint">"Add to Calendar" puts the habit in your iPhone Calendar as a repeating event with an alert, so your phone reminds you at habit time even when this app is closed. You also get a heads-up alert beforehand (15 minutes by default) so the switch isn't a surprise. If you change a habit, add it again and delete the old one in Calendar.</p>
     <h2>Backup</h2>
     <p class="hint">Your habits live only on this phone. Save a backup now and then.</p>
     <div class="row"><button class="btn secondary" id="exp">Save backup</button><button class="btn secondary" id="imp">Restore</button></div>
@@ -471,12 +667,15 @@ function renderHabits(){
   document.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>addToCalendar([S.habits.find(h=>h.id===b.dataset.cal)]));
   const ca=document.getElementById('calAll'); if(ca) ca.onclick=()=>addToCalendar(S.habits.filter(h=>h.days.length));
   const ce=document.getElementById('clearEx'); if(ce) ce.onclick=()=>{ if(confirm('Remove all example habits?')){ S.habits=S.habits.filter(h=>!h.example); save(); render(); } };
+  document.getElementById('openSc').onclick=openScorecard;
+  document.getElementById('openRv').onclick=openReview;
+  document.getElementById('quietT').onclick=()=>{ S.quiet=!S.quiet; save(); render(); };
   document.getElementById('exp').onclick=exportData;
   document.getElementById('imp').onclick=()=>document.getElementById('impFile').click();
   document.getElementById('impFile').onchange=importData;
 }
 function editHabit(id, preset){
-  const h = id ? S.habits.find(x=>x.id===id) : Object.assign({id:uid(),name:'',tiny:'',cue:'',days:[],time:'',mins:15,alert:0,area:'',done:{},created:todayKey()}, preset||{});
+  const h = id ? S.habits.find(x=>x.id===id) : Object.assign({id:uid(),name:'',tiny:'',cue:'',days:[],time:'',mins:15,alert:0,heads:15,area:'',done:{},created:todayKey()}, preset||{});
   let days=h.days.slice();
   openSheet(`
     <h1 style="font-size:22px">${id?'Edit habit':'New habit'}</h1>
@@ -491,7 +690,12 @@ function editHabit(id, preset){
     <label${id?'':' style="margin-top:0"'}>What's the habit?</label><input id="f_name" value="${esc(h.name)}" placeholder="e.g. Go to the studio">
     <label>Tiny version (2 minutes or less to start)</label><input id="f_tiny" value="${esc(h.tiny)}" placeholder="e.g. Just arrive and open a sketchbook">
     <label>Who does this make you? (optional)</label><input id="f_identity" value="${esc(h.identity||'')}" placeholder="e.g. someone who makes art">
-    <label>Cue: when / after what?</label><input id="f_cue" value="${esc(h.cue)}" placeholder="e.g. After my morning coffee, I will…">
+    <label>Cue: after what will you do it?</label><input id="f_cue" value="${esc(h.cue)}" placeholder="e.g. After my morning coffee, I will…">
+    ${stackChips()}
+    <label>Why does this matter to you? (shown at habit time)</label><input id="f_why" value="${esc(h.why||'')}" placeholder="e.g. I feel more like me when I make things">
+    <label>Pair it with something you enjoy (optional)</label><input id="f_pair" value="${esc(h.pair||'')}" placeholder="e.g. Only listen to my favourite podcast on the way">
+    <label>One-time setup to make it easy (optional)</label><input id="f_setup" value="${esc(h.setup||'')}" placeholder="e.g. Leave my studio bag by the door">
+    <label>Steps, one per line (optional)</label><textarea id="f_steps" style="min-height:80px" placeholder="Grab the bag&#10;Walk to the studio&#10;Open one sketchbook">${esc(h.steps||'')}</textarea>
     <label>Which days?</label><div class="days" id="f_days">${DAYS.map((d,i)=>`<button type="button" data-d="${i}" class="${days.includes(i)?'on':''}">${d[0]}</button>`).join('')}</div>
     <div class="row">
       <div><label>Time</label><input id="f_time" type="time" value="${esc(h.time)}"></div>
@@ -499,6 +703,9 @@ function editHabit(id, preset){
     </div>
     <div class="row">
       <div><label>Calendar alert</label><select id="f_alert">${[[0,'At habit time'],[5,'5 min before'],[10,'10 min before'],[30,'30 min before']].map(([v,l])=>`<option value="${v}" ${+h.alert===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div><label>Heads-up before</label><select id="f_heads">${[[0,'None'],[10,'10 min before'],[15,'15 min before'],[30,'30 min before']].map(([v,l])=>`<option value="${v}" ${+(h.heads??15)===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="row">
       <div><label>Area (optional)</label><select id="f_area"><option value="">None</option>${AREAS.map(a=>`<option ${h.area===a?'selected':''}>${a}</option>`).join('')}</select></div>
     </div>
     <div style="height:18px"></div>
@@ -507,12 +714,16 @@ function editHabit(id, preset){
   `, ()=>{
     const fill=sg=>{
       if(!sg) return;
-      ['name','tiny','identity','cue','time','mins'].forEach(k=>{ document.getElementById('f_'+k).value=sg[k]??''; });
+      ['name','tiny','identity','cue','time','mins','setup','steps'].forEach(k=>{ document.getElementById('f_'+k).value=sg[k]??''; });
       document.getElementById('f_area').value=sg.area||'';
       days=sg.days.slice();
       document.querySelectorAll('#f_days button').forEach(b=>b.classList.toggle('on',days.includes(+b.dataset.d)));
       const note=document.getElementById('c_note'); note.textContent='Coach: '+sg.tip; note.style.display='block';
     };
+    document.querySelectorAll('[data-stack]').forEach(b=>b.onclick=()=>{
+      const tiny=document.getElementById('f_tiny').value.trim()||document.getElementById('f_name').value.trim()||'…';
+      document.getElementById('f_cue').value='After I '+b.dataset.stack.replace(/^(i\s+)/i,'').replace(/^./,c=>c.toLowerCase())+', I will '+tiny.replace(/^./,c=>c.toLowerCase());
+    });
     const go=document.getElementById('c_go');
     if(go){
       go.onclick=async()=>{
@@ -527,8 +738,17 @@ function editHabit(id, preset){
     document.querySelectorAll('#f_days button').forEach(b=>b.onclick=()=>{ const d=+b.dataset.d; days=days.includes(d)?days.filter(x=>x!==d):[...days,d]; b.classList.toggle('on'); });
     document.getElementById('f_save').onclick=()=>{
       const name=document.getElementById('f_name').value.trim(); if(!name){ toast('Give it a name'); return; }
-      Object.assign(h,{example:false, name, tiny:f('tiny'), identity:f('identity'), cue:f('cue'), days, time:f('time'), mins:+f('mins')||15, alert:+f('alert')||0, area:f('area')});
-      if(!id) S.habits.push(h);
+      const setup=f('setup');
+      Object.assign(h,{example:false, name, tiny:f('tiny'), identity:f('identity'), cue:f('cue'), why:f('why'), pair:f('pair'),
+        setupDone: setup && setup===h.setup ? h.setupDone : false, setup, steps:f('steps'),
+        days, time:f('time'), mins:+f('mins')||15, alert:+f('alert')||0, heads:+f('heads')||0, area:f('area')});
+      if(!id){
+        const recent=S.habits.filter(x=>!x.example && x.created && (new Date()-new Date(x.created+'T00:00'))<7*864e5).length;
+        if(recent>=2 && !confirm(`You've started ${recent} new habits this week. The book's advice: get one or two solid before adding more.\n\nOK = add it anyway\nCancel = save it to Ideas for later`)){
+          S.ideas.push({id:uid(),text:name,size:'30',area:h.area||'Life'}); save(); closeSheet(); render(); toast('Saved to Ideas. Add it when the others feel easy.'); return;
+        }
+        S.habits.push(h);
+      }
       save(); closeSheet(); render();
       toast(h.days.length&&h.time ? 'Saved. Tap "Add to Calendar" for a reminder.' : 'Saved.');
     };
@@ -674,6 +894,7 @@ function renderHistory(){
     <h2>Habits</h2>
     ${all.map(h=>{ const t=Object.keys(h.done).length; return `<div class="card"><p class="hname">${esc(h.name)}${h.archivedOn?' <span class="hint">(retired)</span>':''}</p>
       <div class="meta"><span class="pill">${t} time${t===1?'':'s'} total</span><span class="pill warm">Best run: ${bestStreak(h)}</span>${h.archivedOn?'':`<span class="pill ghost">Now: ${streak(h)}</span>`}</div></div>`; }).join('')||'<div class="empty">No habits yet.</div>'}
+    ${(S.reviews||[]).length?`<h2>Sunday check-ins</h2><div class="card">${S.reviews.slice().reverse().map(r=>`<div class="idea"><p><b>${new Date(r.week+'T00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</b>${r.note?' · '+esc(r.note):''}<br><span class="hint">${Object.entries(r.feel||{}).map(([id,f])=>{const h=all.find(x=>x.id===id);return h?esc(h.name)+': '+['too hard','about right','too easy'][f]:''}).filter(Boolean).join(' · ')}</span></p></div>`).join('')}</div>`:''}
     ${log.length?`<h2>Ideas you did</h2><div class="card">${log.slice().reverse().map(l=>`<div class="idea"><p>${esc(l.text)}</p><span class="hint">${new Date(l.date+'T00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</span></div>`).join('')}</div>`:''}
   `;
   document.getElementById('prevM').onclick=()=>{ histMonth=new Date(y,m-1,1); histDay=null; render(); };
