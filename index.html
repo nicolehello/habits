@@ -66,7 +66,7 @@ textarea{min-height:110px;resize:vertical}
 .row{display:flex;gap:10px}.row>*{flex:1}
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
   display:flex;justify-content:space-around;padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
-nav button{background:none;border:0;font:inherit;font-size:12px;color:var(--soft);display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 18px;cursor:pointer}
+nav button{background:none;border:0;font:inherit;font-size:12px;color:var(--soft);display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 10px;cursor:pointer}
 nav button.on{color:var(--accent)}
 nav svg{width:22px;height:22px}
 .idea{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -82,6 +82,13 @@ nav svg{width:22px;height:22px}
 .toast.show{opacity:1}
 .hint{font-size:13px;color:var(--soft)}
 .quote{font-size:14px;color:var(--soft);font-style:italic;margin:4px 0 0}
+.coach{background:var(--accent-soft);border:0}
+.coach textarea{background:var(--card)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;text-align:center}
+.cal-h{font-size:11px;color:var(--soft)}
+.cal-d{font:inherit;font-size:13px;aspect-ratio:1;border-radius:10px;border:0;background:var(--bg);color:var(--ink);cursor:pointer;padding:0}
+.cal-d.t{outline:2px solid var(--warm)}
+.cal-d.sel{outline:2px solid var(--ink)}
 .grow{background:var(--warm-soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:10px}
 </style>
 </head>
@@ -92,6 +99,7 @@ nav svg{width:22px;height:22px}
   <button data-tab="today" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Today</button>
   <button data-tab="habits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Habits</button>
   <button data-tab="ideas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>Ideas</button>
+  <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>History</button>
 </nav>
 
 <div class="sheet-bg" id="sheetBg"></div>
@@ -173,6 +181,98 @@ function guessSize(t){
   if(BIG.test(t)) return 'big';
   if(SMALL.test(t) || t.split(/\s+/).length<=3) return '5';
   return '30';
+}
+
+
+/* ---------- coach (free, rules-based) ---------- */
+const PLAYBOOK = [
+  {re:/studio/i, name:'Go to the studio', tiny:'Arrive and open one sketchbook', identity:'someone who makes art', cue:'After work, I grab my bag and go straight there', n:2, time:'17:30', mins:20, area:'Studio',
+   tip:'Two short visits a week is plenty to start. Once it feels easy, add a day or ten minutes.'},
+  {re:/\b(paint|draw|sketch|illustrat|doodle|art)\w*/i, name:'Make a little art', tiny:'Draw one line in my sketchbook', identity:'someone who makes art', cue:'After my morning coffee, I open my sketchbook', n:3, time:'08:00', mins:15, area:'Studio',
+   tip:'Keep the sketchbook out where you\'ll see it. Visible cue, easy start.'},
+  {re:/\b(clay|ceramic|pottery|wheel|throw)\w*/i, name:'Clay time', tiny:'Wedge one ball of clay', identity:'a potter', cue:'After lunch on the weekend, I go to the wheel', n:2, time:'13:00', mins:30, area:'Studio',
+   tip:'Set out your tools the night before so starting takes seconds.'},
+  {re:/\b(guitar|piano|music|sing|ukulele|practi[cs]e)\w*/i, name:'Play music', tiny:'Play one song, or just tune up', identity:'a musician', cue:'After dinner, I pick up my instrument', n:4, time:'19:30', mins:15, area:'Studio',
+   tip:'Leave the instrument out of its case. Friction is the enemy.'},
+  {re:/\b(write|writing|journal|poem|blog|diary)\w*/i, name:'Write', tiny:'Write one sentence', identity:'a writer', cue:'After I make my morning tea, I open my notebook', n:5, time:'07:30', mins:10, area:'Studio',
+   tip:'One sentence counts. Most days you\'ll keep going.'},
+  {re:/\b(read|book)\w*/i, name:'Read', tiny:'Read one page', identity:'a reader', cue:'After I get into bed, I read instead of scrolling', n:7, time:'21:30', mins:15, area:'Life',
+   tip:'Put the book on your pillow in the morning so it\'s there at night.'},
+  {re:/\b(walk)\w*/i, name:'Go for a walk', tiny:'Put my shoes on and step outside', identity:'someone who moves every day', cue:'After lunch, I put my shoes on and go', n:5, time:'12:30', mins:20, area:'Health',
+   tip:'Shoes by the door. Just getting outside is the win.'},
+  {re:/\b(run|jog)\w*/i, name:'Go for a run', tiny:'Put my running gear on', identity:'a runner', cue:'After I wake up, I put my running gear on', n:3, time:'07:00', mins:20, area:'Health',
+   tip:'Lay your gear out the night before. Walk breaks are fine.'},
+  {re:/\b(gym|exercise|workout|work out|fit|strength|weights)\w*/i, name:'Move my body', tiny:'Do 5 squats', identity:'someone who looks after my body', cue:'After work, I change straight into workout clothes', n:3, time:'17:30', mins:20, area:'Health',
+   tip:'Showing up matters more than the workout. Five squats keeps the chain going.'},
+  {re:/\b(yoga|stretch|pilates|mobility)\w*/i, name:'Stretch', tiny:'Roll out my mat and do one stretch', identity:'someone who takes care of my body', cue:'After I brush my teeth at night, I roll out my mat', n:5, time:'21:00', mins:10, area:'Health',
+   tip:'Leave the mat rolled out somewhere you\'ll walk past.'},
+  {re:/\b(meditat|breath|mindful|calm)\w*/i, name:'Meditate', tiny:'Take three slow breaths', identity:'a calm person', cue:'After I sit down with my morning coffee, I close my eyes', n:7, time:'07:30', mins:5, area:'Health',
+   tip:'Three breaths counts. Seriously.'},
+  {re:/\b(water|hydrat|drink)\w*/i, name:'Drink water', tiny:'Drink one glass', identity:'someone who looks after myself', cue:'After I wake up, I drink a glass of water', n:7, time:'07:00', mins:2, area:'Health',
+   tip:'Keep a full glass by the bed.'},
+  {re:/\b(sleep|bed|bedtime|wind down)\w*/i, name:'Wind down for bed', tiny:'Put my phone on charge outside the bedroom', identity:'someone who rests well', cue:'At 10pm, I plug my phone in in the kitchen', n:7, time:'22:00', mins:10, area:'Health',
+   tip:'The phone leaving the room is the whole habit.'},
+  {re:/\b(tidy|clean|declutter|mess|organi[sz]e|laundry|dishes|house|home)\w*/i, name:'Tidy for 10 minutes', tiny:'Put away 3 things', identity:'someone with a calm home', cue:'After dinner, I set a 10 minute timer and tidy', n:5, time:'19:30', mins:10, area:'Home',
+   tip:'Stop when the timer goes, even mid-task. It keeps it light.'},
+  {re:/\b(cook|meal|bake|recipe|eat)\w*/i, name:'Cook a proper meal', tiny:'Pick tonight\'s recipe in the morning', identity:'someone who cooks', cue:'After breakfast, I choose what\'s for dinner', n:3, time:'17:30', mins:30, area:'Home',
+   tip:'Deciding early is half the battle. Add ingredients to your shopping list.'},
+  {re:/\b(garden|plant|weed)\w*/i, name:'Garden', tiny:'Water one plant', identity:'a gardener', cue:'After my morning coffee, I step into the garden', n:3, time:'08:00', mins:15, area:'Home',
+   tip:'Just going outside to look counts.'},
+  {re:/\b(learn|study|language|spanish|french|maori|te reo|japanese|duolingo|course)\w*/i, name:'Learn a little', tiny:'Do one lesson or learn one word', identity:'a lifelong learner', cue:'After I sit down on the bus or with lunch, I open my lesson', n:5, time:'12:30', mins:15, area:'Life',
+   tip:'Small and daily beats long and rare for learning.'},
+  {re:/\b(phone|scroll|screen|social media|instagram|tiktok)\w*/i, name:'Phone-free time', tiny:'Put my phone in another room for 10 minutes', identity:'someone in charge of my attention', cue:'After I get home, my phone goes in the drawer', n:5, time:'18:00', mins:30, area:'Life',
+   tip:'Out of sight really is out of mind.'},
+  {re:/\b(friend|call|family|mum|mom|dad|text)\w*/i, name:'Reach out to someone', tiny:'Send one message', identity:'a good friend', cue:'After Sunday lunch, I message someone I miss', n:1, time:'14:00', mins:10, area:'Life',
+   tip:'One message a week adds up to a lot of connection.'},
+];
+const DAY_SPREAD = {1:[5],2:[1,5],3:[0,2,4],4:[0,1,3,5],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
+function parseTime(t){
+  let m=t.match(/\b(?:at\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if(m){ let h=+m[1]%12; if(/pm/i.test(m[3])) h+=12; return pad(h)+':'+(m[2]||'00'); }
+  m=t.match(/\bat\s*(\d{1,2}):(\d{2})\b/); if(m) return pad(+m[1])+':'+m[2];
+  if(/\bmorning|before work|wake/i.test(t)) return '07:30';
+  if(/\blunch/i.test(t)) return '12:30';
+  if(/\bafter work|afternoon/i.test(t)) return '17:30';
+  if(/\bevening|after dinner|night/i.test(t)) return '19:30';
+  return null;
+}
+function parseDays(t){
+  const named=[]; ['mon','tue','wed','thu','fri','sat','sun'].forEach((d,i)=>{ if(new RegExp('\\b'+d,'i').test(t)) named.push(i); });
+  if(named.length) return named;
+  if(/\bweekends?\b/i.test(t)) return [5,6];
+  if(/\bweekdays?\b/i.test(t)) return [0,1,2,3,4];
+  if(/\b(every ?day|daily|each day)\b/i.test(t)) return DAY_SPREAD[7];
+  const words={once:1,one:1,twice:2,two:2,three:3,four:4,five:5,six:6};
+  let m=t.match(/\b(\d|once|twice|one|two|three|four|five|six)\s*(?:times?|x|days?)?\s*(?:a|per|each)\s*week/i) || t.match(/\b(once|twice)\b/i);
+  if(m){ const n=words[m[1].toLowerCase()]||+m[1]; return DAY_SPREAD[Math.min(7,Math.max(1,n))]; }
+  return null;
+}
+function parseMins(t){ const m=t.match(/(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hour|hours)\b/i); return m ? (/^h/i.test(m[2])?+m[1]*60:+m[1]) : null; }
+function tidyName(t){
+  t=t.replace(/\b(i want to|i'd like to|i would like to|i wanna|want to|try to|i need to|need to|start|more( often)?|again|regularly|maybe|like|please)\b/gi,' ')
+     .replace(/\b(\d|once|twice|one|two|three|four|five|six)\s*(times?|x|days?)?\s*(a|per|each)\s*week\b/gi,' ')
+     .replace(/\b(every ?day|daily|on weekends?|weekdays?|at \d.*|in the (morning|evening)|after work|for \d+\s*\w+)\b/gi,' ')
+     .replace(/[,.]+/g,' ').replace(/\s+/g,' ').trim();
+  return t ? t[0].toUpperCase()+t.slice(1) : '';
+}
+function coachSuggest(text){
+  const t=text.trim(); if(!t) return null;
+  const p=PLAYBOOK.find(x=>x.re.test(t));
+  const base = p ? {...p} : {name:tidyName(t)||t, tiny:'Do it for just 2 minutes', identity:'someone who keeps promises to myself',
+    cue:'After breakfast, I '+(tidyName(t)||t).toLowerCase(), n:3, time:'18:00', mins:15, area:guessArea(t)==='Life'?'':guessArea(t),
+    tip:'Make the first step tiny. Two minutes, then stop if you want.'};
+  const days=parseDays(t)||DAY_SPREAD[base.n];
+  const time=parseTime(t)||base.time;
+  const mins=parseMins(t)||base.mins;
+  let cue=base.cue;
+  if(/\d\s*(am|pm)\b|\bat\s*\d{1,2}:\d{2}/i.test(t)){
+    const [hh,mm]=time.split(':').map(Number), nice=((hh%12)||12)+(mm?':'+pad(mm):'')+(hh<12?'am':'pm');
+    cue='At '+nice+', I '+base.tiny[0].toLowerCase()+base.tiny.slice(1);
+  }
+  const own=tidyName(t);
+  const name = own && own.split(' ').length<=5 ? own : base.name;
+  return {name, tiny:base.tiny, identity:base.identity, cue, days, time, mins, area:base.area,
+    tip: base.tip + (days.length<=2 ? '' : ' Starting with '+days.length+' days. If that feels like a lot, drop to two.')};
 }
 
 /* ---------- calendar (.ics) ---------- */
@@ -272,7 +372,7 @@ function encouragement(todays){
 let tab='today';
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{ tab=b.dataset.tab; document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b)); render(); scrollTo(0,0); });
 
-function render(){ ({today:renderToday,habits:renderHabits,ideas:renderIdeas})[tab](); }
+function render(){ ({today:renderToday,habits:renderHabits,ideas:renderIdeas,history:renderHistory})[tab](); }
 
 /* ---------- Today ---------- */
 function weekDots(h){
@@ -365,7 +465,15 @@ function editHabit(id, preset){
   let days=h.days.slice();
   openSheet(`
     <h1 style="font-size:22px">${id?'Edit habit':'New habit'}</h1>
-    <label>What's the habit?</label><input id="f_name" value="${esc(h.name)}" placeholder="e.g. Go to the studio">
+    ${id?'':`<div class="card coach">
+      <label style="margin-top:0">What do you want to do more of?</label>
+      <textarea id="c_text" rows="2" style="min-height:64px" placeholder="e.g. go to the studio more, maybe twice a week after work">${esc(preset&&preset.coach||'')}</textarea>
+      <div style="height:10px"></div>
+      <button class="btn" id="c_go" type="button">✨ Fill it in for me</button>
+      <p class="hint" id="c_note" style="margin:10px 0 0;display:none"></p>
+    </div>
+    <h2 style="margin-top:18px">Your plan · tweak anything</h2>`}
+    <label${id?'':' style="margin-top:0"'}>What's the habit?</label><input id="f_name" value="${esc(h.name)}" placeholder="e.g. Go to the studio">
     <label>Tiny version (2 minutes or less to start)</label><input id="f_tiny" value="${esc(h.tiny)}" placeholder="e.g. Just arrive and open a sketchbook">
     <label>Who does this make you? (optional)</label><input id="f_identity" value="${esc(h.identity||'')}" placeholder="e.g. someone who makes art">
     <label>Cue: when / after what?</label><input id="f_cue" value="${esc(h.cue)}" placeholder="e.g. After my morning coffee, I will…">
@@ -382,6 +490,25 @@ function editHabit(id, preset){
     <button class="btn" id="f_save">Save</button>
     ${id?'<p style="text-align:center"><button class="link" id="f_del" style="color:var(--warm)">Delete habit</button></p>':''}
   `, ()=>{
+    const fill=sg=>{
+      if(!sg) return;
+      ['name','tiny','identity','cue','time','mins'].forEach(k=>{ document.getElementById('f_'+k).value=sg[k]??''; });
+      document.getElementById('f_area').value=sg.area||'';
+      days=sg.days.slice();
+      document.querySelectorAll('#f_days button').forEach(b=>b.classList.toggle('on',days.includes(+b.dataset.d)));
+      const note=document.getElementById('c_note'); note.textContent='Coach: '+sg.tip; note.style.display='block';
+    };
+    const go=document.getElementById('c_go');
+    if(go){
+      go.onclick=async()=>{
+        const txt=document.getElementById('c_text').value;
+        if(!txt.trim()){ toast('Type what you want to do more of'); return; }
+        
+        let sg=null;
+        fill(sg||coachSuggest(txt));
+      };
+      if(preset&&preset.coach) go.click();
+    }
     document.querySelectorAll('#f_days button').forEach(b=>b.onclick=()=>{ const d=+b.dataset.d; days=days.includes(d)?days.filter(x=>x!==d):[...days,d]; b.classList.toggle('on'); });
     document.getElementById('f_save').onclick=()=>{
       const name=document.getElementById('f_name').value.trim(); if(!name){ toast('Give it a name'); return; }
@@ -391,7 +518,7 @@ function editHabit(id, preset){
       toast(h.days.length&&h.time ? 'Saved. Tap "Add to Calendar" for a reminder.' : 'Saved.');
     };
     const del=document.getElementById('f_del');
-    if(del) del.onclick=()=>{ if(confirm('Delete this habit and its history?')){ S.habits=S.habits.filter(x=>x.id!==id); save(); closeSheet(); render(); } };
+    if(del) del.onclick=()=>{ if(confirm('Remove this habit? Its past ticks stay in your History.')){ (S.archived=S.archived||[]).push({...h,archivedOn:todayKey()}); S.habits=S.habits.filter(x=>x.id!==id); save(); closeSheet(); render(); } };
   });
   function f(n){ return document.getElementById('f_'+n).value.trim(); }
 }
@@ -445,6 +572,7 @@ function renderIdeas(){
             <button class="pill ghost" data-size="${i.id}">${SIZES.find(s=>s.id===i.size).label}</button>
             <button class="pill warm" data-area="${i.id}">${esc(i.area)}</button>
             <button class="pill" data-habit="${i.id}">Make it a habit</button>
+            <button class="pill ghost" data-did="${i.id}">✓ Did it</button>
           </span></p>
           <button class="x" data-del="${i.id}" aria-label="Remove">×</button></div>`).join('')+'</div>';
     }).join('') || (S.ideas.length?'':'<div class="empty">Nothing here yet.</div>')}
@@ -473,14 +601,69 @@ function renderIdeas(){
   document.querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{ const i=find(b.dataset.size), n=SIZES.findIndex(s=>s.id===i.size); i.size=SIZES[(n+1)%SIZES.length].id; save(); render(); });
   document.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>{ const i=find(b.dataset.area); i.area=AREAS[(AREAS.indexOf(i.area)+1)%AREAS.length]; save(); render(); });
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ S.ideas=S.ideas.filter(i=>i.id!==b.dataset.del); save(); render(); });
+  document.querySelectorAll('[data-did]').forEach(b=>b.onclick=()=>{ const i=find(b.dataset.did); (S.log=S.log||[]).push({date:todayKey(),text:i.text}); S.ideas=S.ideas.filter(x=>x!==i); save(); render(); toast('Done! Saved to your history.'); });
   document.querySelectorAll('[data-habit]').forEach(b=>b.onclick=()=>{
     const i=find(b.dataset.habit);
-    editHabit(null,{name:i.text, area:i.area, mins:i.size==='5'?5:i.size==='30'?30:20,
-      tiny:i.size==='big'?'Spend 5 minutes on the very first step':''});
+    editHabit(null,{coach:i.text, area:i.area});
     // remove idea once the habit is saved
     const btn=document.getElementById('f_save'), orig=btn.onclick;
     btn.onclick=()=>{ const before=S.habits.length; orig(); if(S.habits.length>before){ S.ideas=S.ideas.filter(x=>x.id!==i.id); save(); render(); } };
   });
+}
+
+
+/* ---------- History ---------- */
+let histMonth=null, histDay=null;
+function bestStreak(h){
+  let best=0,cur=0,misses=0,d=new Date((h.created||todayKey())+'T00:00');
+  const firstDone=Object.keys(h.done).sort()[0]; if(firstDone && new Date(firstDone+'T00:00')<d) d=new Date(firstDone+'T00:00');
+  const end=new Date();
+  for(;d<=end;d=addDays(d,1)){
+    if(!scheduled(h,d)) continue;
+    const k=keyOf(d);
+    if(h.done[k]){ cur++; misses=0; best=Math.max(best,cur); }
+    else if(k!==todayKey()){ misses++; if(misses>=2){ cur=0; } }
+  }
+  return best;
+}
+function renderHistory(){
+  const all=[...S.habits,...(S.archived||[])], log=S.log||[];
+  const now=new Date(); if(!histMonth) histMonth=new Date(now.getFullYear(),now.getMonth(),1);
+  const y=histMonth.getFullYear(), m=histMonth.getMonth();
+  const byDay={}; all.forEach(h=>Object.keys(h.done).forEach(k=>{ (byDay[k]=byDay[k]||[]).push(h.name); }));
+  log.forEach(l=>{ (byDay[l.date]=byDay[l.date]||[]).push(l.text); });
+  const first=new Date(y,m,1), daysIn=new Date(y,m+1,0).getDate(), offset=dow(first);
+  let cells=''; for(let i=0;i<offset;i++) cells+='<div></div>';
+  for(let d=1;d<=daysIn;d++){
+    const k=y+'-'+pad(m+1)+'-'+pad(d), n=(byDay[k]||[]).length, isT=k===todayKey(), sel=k===histDay;
+    const bg = n? `background:color-mix(in srgb, var(--accent) ${Math.min(100,30+n*25)}%, transparent);color:#fff` : '';
+    cells+=`<button class="cal-d ${isT?'t':''} ${sel?'sel':''}" data-day="${k}" style="${bg}">${d}</button>`;
+  }
+  const monthTicks=Object.keys(byDay).filter(k=>k.startsWith(y+'-'+pad(m+1))).reduce((a,k)=>a+byDay[k].length,0);
+  const total=Object.values(byDay).reduce((a,v)=>a+v.length,0);
+  const dayList = histDay ? `<div class="card"><p class="hname">${new Date(histDay+'T00:00').toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})}</p>`+
+     ((byDay[histDay]||[]).map(t=>`<p class="tiny">✓ ${esc(t)}</p>`).join('')||'<p class="tiny">Nothing ticked. That\'s okay.</p>')+'</div>' : '';
+  document.getElementById('app').innerHTML=`
+    <h1>History</h1>
+    <p class="sub">${total} things done since you started. Every one a vote for who you're becoming.</p>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <button class="link" id="prevM" aria-label="Previous month">‹ Prev</button>
+        <b>${first.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</b>
+        <button class="link" id="nextM" aria-label="Next month">Next ›</button>
+      </div>
+      <div class="cal">${DAYS.map(d=>`<div class="cal-h">${d[0]}</div>`).join('')}${cells}</div>
+      <p class="hint" style="margin:10px 0 0">${monthTicks} done this month. Tap a day to see what you did.</p>
+    </div>
+    ${dayList}
+    <h2>Habits</h2>
+    ${all.map(h=>{ const t=Object.keys(h.done).length; return `<div class="card"><p class="hname">${esc(h.name)}${h.archivedOn?' <span class="hint">(retired)</span>':''}</p>
+      <div class="meta"><span class="pill">${t} time${t===1?'':'s'} total</span><span class="pill warm">Best run: ${bestStreak(h)}</span>${h.archivedOn?'':`<span class="pill ghost">Now: ${streak(h)}</span>`}</div></div>`; }).join('')||'<div class="empty">No habits yet.</div>'}
+    ${log.length?`<h2>Ideas you did</h2><div class="card">${log.slice().reverse().map(l=>`<div class="idea"><p>${esc(l.text)}</p><span class="hint">${new Date(l.date+'T00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}</span></div>`).join('')}</div>`:''}
+  `;
+  document.getElementById('prevM').onclick=()=>{ histMonth=new Date(y,m-1,1); histDay=null; render(); };
+  document.getElementById('nextM').onclick=()=>{ histMonth=new Date(y,m+1,1); histDay=null; render(); };
+  document.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{ histDay=histDay===b.dataset.day?null:b.dataset.day; render(); });
 }
 
 /* ---------- start ---------- */
