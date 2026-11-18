@@ -115,16 +115,29 @@ const AREAS = ['Studio','Home','Health','Life'];
 const SIZES = [{id:'5',label:'5 min'},{id:'30',label:'~30 min'},{id:'big',label:'Bigger project'}];
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
+function examples(){
+  const ex=(o)=>Object.assign({id:uid(),alert:0,done:{},created:todayKey(),example:true},o);
+  return [
+    ex({name:'Go to the studio', tiny:'Just arrive and open one sketchbook', cue:'After I finish work, I grab my bag and go', days:[1,5], time:'17:30', mins:20, area:'Studio', identity:'someone who makes art'}),
+    ex({name:'Go for a walk', tiny:'Put my shoes on and step outside', cue:'After lunch, I put my shoes on and go', days:[0,2,4], time:'12:30', mins:15, area:'Health', identity:'someone who moves every day'}),
+    ex({name:'Read before bed', tiny:'Read one page', cue:'After I get into bed, I read instead of scrolling', days:[0,1,2,3,4,5,6], time:'21:30', mins:15, area:'Life', identity:'a reader'}),
+    ex({name:'Tidy for 10 minutes', tiny:'Put away 3 things', cue:'After dinner, I set a 10 minute timer and tidy', days:[0,1,2,3,4], time:'19:30', mins:10, area:'Home', identity:'someone with a calm home'}),
+  ];
+}
 function load(){
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.habits) return s; } catch(e){}
-  return {
-    habits:[{
-      id:uid(), name:'Go to the studio', tiny:'Just arrive and open one sketchbook',
-      cue:'After I finish work, I grab my bag and go', days:[1,5], time:'17:30', mins:20,
-      area:'Studio', identity:'someone who makes art', done:{}, created:todayKey()
-    }],
-    ideas:[]
-  };
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.habits){
+      if(!s.v2){ // add the new examples for anyone who opened the first version
+        s.v2=true;
+        const have=new Set(s.habits.map(h=>h.name));
+        s.habits.forEach(h=>{ if(h.name==='Go to the studio' && !Object.keys(h.done).length) h.example=true; });
+        examples().forEach(e=>{ if(!have.has(e.name)) s.habits.push(e); });
+      }
+      return s;
+    }
+  } catch(e){}
+  return { v2:true, habits:examples(), ideas:[] };
 }
 let S = load();
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
@@ -436,7 +449,7 @@ function renderHabits(){
       const {n,need}=doneInLastWeeks(h,3);
       const grow = need>=4 && n/need>=0.8 ? `<div class="grow">You've shown up ${n} of ${need} times in 3 weeks. Ready to add a day or a few minutes?</div>`:'';
       return `<div class="card"><div class="hbody">
-        <p class="hname">${esc(h.name)}</p>
+        <p class="hname">${esc(h.name)}${h.example?' <span class="pill ghost" style="font-weight:400">example</span>':''}</p>
         <p class="tiny">${h.days.slice().sort().map(i=>DAYS[i]).join(', ')||'No days set'}${h.time?' · '+esc(h.time):''} · ${h.mins||15} min</p>
         ${h.cue?`<p class="cue">${esc(h.cue)}</p>`:''}
         ${grow}
@@ -444,6 +457,7 @@ function renderHabits(){
           <button class="pill" data-cal="${h.id}">＋ Add to Calendar</button>
           <button class="pill ghost" data-edit="${h.id}">Edit</button>
         </div></div></div>`;}).join('')||'<div class="empty">No habits yet.</div>'}
+    ${S.habits.some(h=>h.example)?'<p class="hint">The examples show how it works. Tap Edit to make one yours, or clear them all.</p><p style="text-align:center;margin:0 0 10px"><button class="link" id="clearEx">Remove all examples</button></p>':''}
     <button class="btn" onclick="editHabit()">New habit</button>
     ${S.habits.length>1?'<p style="text-align:center"><button class="link" id="calAll">Add all habits to Calendar</button></p>':''}
     <h2>About reminders</h2>
@@ -456,6 +470,7 @@ function renderHabits(){
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editHabit(b.dataset.edit));
   document.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>addToCalendar([S.habits.find(h=>h.id===b.dataset.cal)]));
   const ca=document.getElementById('calAll'); if(ca) ca.onclick=()=>addToCalendar(S.habits.filter(h=>h.days.length));
+  const ce=document.getElementById('clearEx'); if(ce) ce.onclick=()=>{ if(confirm('Remove all example habits?')){ S.habits=S.habits.filter(h=>!h.example); save(); render(); } };
   document.getElementById('exp').onclick=exportData;
   document.getElementById('imp').onclick=()=>document.getElementById('impFile').click();
   document.getElementById('impFile').onchange=importData;
@@ -512,7 +527,7 @@ function editHabit(id, preset){
     document.querySelectorAll('#f_days button').forEach(b=>b.onclick=()=>{ const d=+b.dataset.d; days=days.includes(d)?days.filter(x=>x!==d):[...days,d]; b.classList.toggle('on'); });
     document.getElementById('f_save').onclick=()=>{
       const name=document.getElementById('f_name').value.trim(); if(!name){ toast('Give it a name'); return; }
-      Object.assign(h,{name, tiny:f('tiny'), identity:f('identity'), cue:f('cue'), days, time:f('time'), mins:+f('mins')||15, alert:+f('alert')||0, area:f('area')});
+      Object.assign(h,{example:false, name, tiny:f('tiny'), identity:f('identity'), cue:f('cue'), days, time:f('time'), mins:+f('mins')||15, alert:+f('alert')||0, area:f('area')});
       if(!id) S.habits.push(h);
       save(); closeSheet(); render();
       toast(h.days.length&&h.time ? 'Saved. Tap "Add to Calendar" for a reminder.' : 'Saved.');
